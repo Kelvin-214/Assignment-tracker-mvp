@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Smart Assignment Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        :root {
+            --bg: #f4f6f8;
+            --card: white;
+            --text: #111;
+            --accent: #2563eb;
+        }
+
+        body.dark {
+            --bg: #1e1e1e;
+            --card: #2c2c2c;
+            --text: #f1f1f1;
+            --accent: #3b82f6;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            max-width: 700px;
+            margin: auto;
+            padding: 20px;
+            transition: 0.3s;
+        }
+
+        h2 {
+            text-align: center;
+        }
+
+        input, button {
+            padding: 8px;
+            margin: 5px 0;
+        }
+
+        input {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .task {
+            background: var(--card);
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        .completed {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+
+        .overdue {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>Smart Assignment Tracker</h2>
+
+<input type="text" id="title" placeholder="Assignment Title">
+<input type="text" id="course" placeholder="Course Name">
+<input type="date" id="deadline">
+<button onclick="addTask()">Add Assignment</button>
+
+<div class="controls">
+    <input type="text" id="search" placeholder="Search assignments..." oninput="displayTasks()">
+    <button onclick="sortByDeadline()">Sort by Deadline</button>
+    <button onclick="toggleDarkMode()">Toggle Dark Mode</button>
+</div>
+
+<h3 id="progress"></h3>
+
+<div id="taskList"></div>
+
+<script>
+
+let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+
+function saveTasks() {
+    localStorage.setItem("tasks", JSON.stringify(tasks));
+}
+
+function addTask() {
+    const title = document.getElementById("title").value.trim();
+    const course = document.getElementById("course").value.trim();
+    const deadline = document.getElementById("deadline").value;
+
+    if (!title || !course || !deadline) {
+        alert("Please fill all fields");
+        return;
+    }
+
+    tasks.push({
+        title,
+        course,
+        deadline,
+        completed: false
+    });
+
+    saveTasks();
+    displayTasks();
+    checkNotifications();
+
+    document.getElementById("title").value = "";
+    document.getElementById("course").value = "";
+    document.getElementById("deadline").value = "";
+}
+
+function toggleComplete(index) {
+    tasks[index].completed = !tasks[index].completed;
+    saveTasks();
+    displayTasks();
+}
+
+function deleteTask(index) {
+    tasks.splice(index, 1);
+    saveTasks();
+    displayTasks();
+}
+
+function sortByDeadline() {
+    tasks.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+    saveTasks();
+    displayTasks();
+}
+
+function toggleDarkMode() {
+    document.body.classList.toggle("dark");
+}
+
+function displayTasks() {
+    const taskList = document.getElementById("taskList");
+    const searchValue = document.getElementById("search").value.toLowerCase();
+    taskList.innerHTML = "";
+
+    const today = new Date().toISOString().split("T")[0];
+
+    const filtered = tasks.filter(task =>
+        task.title.toLowerCase().includes(searchValue) ||
+        task.course.toLowerCase().includes(searchValue)
+    );
+
+    filtered.forEach((task, index) => {
+        const overdue = !task.completed && task.deadline < today;
+
+        taskList.innerHTML += `
+            <div class="task ${task.completed ? 'completed' : ''}">
+                <strong>${task.title}</strong><br>
+                Course: ${task.course}<br>
+                Deadline: ${task.deadline}
+                ${overdue ? '<span class="overdue">(Overdue)</span>' : ''}<br><br>
+                <button onclick="toggleComplete(${tasks.indexOf(task)})">
+                    ${task.completed ? 'Undo' : 'Complete'}
+                </button>
+                <button onclick="deleteTask(${tasks.indexOf(task)})">
+                    Delete
+                </button>
+            </div>
+        `;
+    });
+
+    const completedCount = tasks.filter(t => t.completed).length;
+    document.getElementById("progress").innerText =
+        `Progress: ${completedCount} / ${tasks.length} Completed`;
+}
+
+function checkNotifications() {
+    if (!("Notification" in window)) return;
+
+    if (Notification.permission === "granted") {
+        const today = new Date().toISOString().split("T")[0];
+
+        tasks.forEach(task => {
+            if (!task.completed && task.deadline === today) {
+                new Notification("Assignment Due Today!", {
+                    body: `${task.title} for ${task.course} is due today.`
+                });
+            }
+        });
+    }
+}
+
+if ("Notification" in window) {
+    Notification.requestPermission();
+}
+
+displayTasks();
+
+</script>
+
+</body>
+</html>
